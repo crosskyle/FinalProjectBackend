@@ -13,6 +13,7 @@ class car(ndb.Model):
 	make = ndb.StringProperty()
 	model = ndb.StringProperty()
 	year = ndb.IntegerProperty()
+	color = ndb.StringProperty()
 
 
 class carHandler(webapp2.RequestHandler):
@@ -32,13 +33,16 @@ class carHandler(webapp2.RequestHandler):
 			if 'year' in req_body:
 				new_car.year = req_body['year']
 
+			if 'color' in req_body:
+				new_car.color = req_body['color']
+
 			new_car.put()
 			new_car.id = str(new_car.key.urlsafe())
 			new_car.put()
 
 			car_dict = new_car.to_dict()
 			car_dict['kind'] = new_car.key.kind()
-			car_dict['self'] = '/cars/person/' + str(email) + '/car/' + new_car.key.urlsafe()
+			car_dict['self'] = '/cars/' + new_car.key.urlsafe()
 
 			self.response.write(json.dumps(car_dict))
 
@@ -46,44 +50,56 @@ class carHandler(webapp2.RequestHandler):
 			self.response.write('Provide the correct parameters.')
 			self.abort(400)
 
+
 	def get(self, email=None):
 		car_data = car.query(car.email == email).fetch()
 		car_dict = {
+			"kind": "collection",
 			"cars": []
 		}
 
 		for x in car_data:
 			x_dict = x.to_dict()
 			x_dict["kind"] = "car"
-			x_dict["self"] = '/cars/person/' + str(email) + '/car/' + x.key.urlsafe()
+			x_dict["self"] = '/cars/' + x.key.urlsafe()
 			car_dict["cars"].append(x_dict)
 
 		self.response.write(json.dumps(car_dict))
 
 
-	def patch(self, email=None, car_id=None):
-		print email, car_id
+	def patch(self, car_id=None):
 
-		if email and car_id:
+		if car_id:
 			req_body = json.loads(self.request.body)
 			car_entity = ndb.Key(urlsafe=car_id).get()
 
-			if len(req_body) <= 3:
+			if len(req_body) <= 4:
 
 				if 'make' in req_body:
 					car_entity.make = req_body['make']
+				else:
+					car_entity.make = None
 
 				if 'model' in req_body:
 					car_entity.model = req_body['model']
+				else:
+					car_entity.model = None
 
 				if 'year' in req_body:
 					car_entity.year = req_body['year']
+				else:
+					car_entity.year = None
+
+				if 'color' in req_body:
+					car_entity.color = req_body['color']
+				else:
+					car_entity.color = None
 
 				car_entity.put()
 
 				car_dict = car_entity.to_dict()
 				car_dict['kind'] = ndb.Key(urlsafe=car_id).kind()
-				car_dict['self'] = '/cars/person/' + str(email) + '/car/' + car_entity.key.urlsafe()
+				car_dict['self'] = '/cars/' + car_entity.key.urlsafe()
 
 				self.response.write(json.dumps(car_dict))
 
@@ -91,8 +107,15 @@ class carHandler(webapp2.RequestHandler):
 				self.response.write('Too many fields given')
 				self.abort(400)
 		else:
-			self.response.write('Person\'s email and car id must be provided in parameters')
+			self.response.write('Person\'s car id must be provided in parameters')
 			self.abort(400)
+
+
+	def delete(self, car_id=None):
+
+		if car_id:
+			ndb.Key(urlsafe=car_id).delete()
+			self.response.set_status(204)
 
 
 
@@ -100,6 +123,7 @@ class MainPage(webapp2.RequestHandler):
 
 	def get(self):
 		self.response.write("A REST API for storing car data.")
+
 
 
 def handle_400(request, response, exception):
@@ -113,8 +137,8 @@ webapp2.WSGIApplication.allowed_methods = new_allowed_methods
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
-	('/cars/person/(.*)/car/(.*)', carHandler),
-    ('/cars/person/(.*)', carHandler),
+    ('/users/(.*)/cars', carHandler),
+	('/cars/(.*)', carHandler),
 ], debug=True)
 
 
