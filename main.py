@@ -1,6 +1,6 @@
 # Author: Kyle Cross
-# Date: 7/13/17
-# Description: A REST API that stores boat and slip data in a Google Cloud datastore
+# Date: 8/14/17
+# Description: A REST API that stores car data tied to user accounts in a Google Cloud datastore
 
 from google.appengine.ext import ndb
 import webapp2
@@ -18,52 +18,11 @@ class car(ndb.Model):
 
 class carHandler(webapp2.RequestHandler):
 
-	def post(self, email=None):
-		req_body = json.loads(self.request.body)
-
-		if email:
-			new_car = car(email=email)
-
-			if 'make' in req_body:
-				new_car.make = req_body['make']
-
-			if 'model' in req_body:
-				new_car.model = req_body['model']
-
-			if 'year' in req_body:
-				new_car.year = req_body['year']
-
-			if 'color' in req_body:
-				new_car.color = req_body['color']
-
-			new_car.put()
-			new_car.id = str(new_car.key.urlsafe())
-			new_car.put()
-
-			car_dict = new_car.to_dict()
-			car_dict['kind'] = new_car.key.kind()
-			car_dict['self'] = '/cars/' + new_car.key.urlsafe()
-
-			self.response.write(json.dumps(car_dict))
-
-		else:
-			self.response.write('Provide the correct parameters.')
-			self.abort(400)
-
-
-	def get(self, email=None):
-		car_data = car.query(car.email == email).fetch()
-		car_dict = {
-			"kind": "collection",
-			"cars": []
-		}
-
-		for x in car_data:
-			x_dict = x.to_dict()
-			x_dict["kind"] = "car"
-			x_dict["self"] = '/cars/' + x.key.urlsafe()
-			car_dict["cars"].append(x_dict)
-
+	def get(self, car_id=None):
+		car_entity = ndb.Key(urlsafe=car_id).get()
+		car_dict = car_entity.to_dict()
+		car_dict['kind'] = ndb.Key(urlsafe=car_id).kind()
+		car_dict['self'] = '/cars/' + car_entity.key.urlsafe()
 		self.response.write(json.dumps(car_dict))
 
 
@@ -118,12 +77,61 @@ class carHandler(webapp2.RequestHandler):
 			self.response.set_status(204)
 
 
+class userHandler(webapp2.RequestHandler):
+
+	def post(self, email=None):
+		req_body = json.loads(self.request.body)
+
+		if email:
+			new_car = car(email=email)
+
+			if 'make' in req_body:
+				new_car.make = req_body['make']
+
+			if 'model' in req_body:
+				new_car.model = req_body['model']
+
+			if 'year' in req_body:
+				new_car.year = req_body['year']
+
+			if 'color' in req_body:
+				new_car.color = req_body['color']
+
+			new_car.put()
+			new_car.id = str(new_car.key.urlsafe())
+			new_car.put()
+
+			car_dict = new_car.to_dict()
+			car_dict['kind'] = new_car.key.kind()
+			car_dict['self'] = '/cars/' + new_car.key.urlsafe()
+
+			self.response.write(json.dumps(car_dict))
+
+		else:
+			self.response.write('Provide the correct parameters.')
+			self.abort(400)
+
+
+	def get(self, email=None):
+		car_data = car.query(car.email == email).fetch()
+		car_dict = {
+			"kind": "collection",
+			"cars": []
+		}
+
+		for x in car_data:
+			x_dict = x.to_dict()
+			x_dict["kind"] = "car"
+			x_dict["self"] = '/cars/' + x.key.urlsafe()
+			car_dict["cars"].append(x_dict)
+
+		self.response.write(json.dumps(car_dict))
+
 
 class MainPage(webapp2.RequestHandler):
 
 	def get(self):
 		self.response.write("A REST API for storing car data.")
-
 
 
 def handle_400(request, response, exception):
@@ -137,7 +145,7 @@ webapp2.WSGIApplication.allowed_methods = new_allowed_methods
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
-    ('/users/(.*)/cars', carHandler),
+    ('/users/(.*)/cars', userHandler),
 	('/cars/(.*)', carHandler),
 ], debug=True)
 
